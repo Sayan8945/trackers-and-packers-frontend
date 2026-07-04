@@ -1,181 +1,75 @@
-# Sarkar Packers & Movers — Frontend
-
-Customer-facing website and admin dashboard for **Sarkar Packers and Movers Pvt. Ltd.** Built with Next.js 16, React 19, TypeScript, and Tailwind CSS.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5.7 |
-| Styling | Tailwind CSS 3 + shadcn/ui (Radix UI) |
-| Animations | Framer Motion 12 |
-| Forms | React Hook Form 7 + Zod |
-| Auth | Firebase Phone Auth + Google OAuth + JWT |
-| HTTP | Axios with auto token-refresh interceptor |
-| Icons | Lucide React |
-| Maps | Google Maps (`@vis.gl/react-google-maps`) |
-| Node | ≥ 20.0.0 |
-
----
-
-## Project Structure
+# Sarkar Packers & Movers — Monorepo
 
 ```
-src/
-├── app/                   # Next.js App Router pages
-│   ├── page.tsx           # Home (landing page)
-│   ├── login/             # Login — phone OTP + email/password tabs
-│   ├── signup/            # Registration
-│   ├── verify-otp/        # Firebase phone OTP verification
-│   ├── forgot-password/   # Password reset request
-│   ├── admin-login/       # Admin portal login
-│   └── admin/             # Admin dashboard (leads, blogs, testimonials…)
-├── components/
-│   ├── sections/          # Landing page sections (Hero, Services, FAQ…)
-│   ├── layout/            # Navbar, Footer, TopHeader
-│   ├── admin/             # Admin sidebar, header, stats cards
-│   └── ui/                # Shared UI primitives (shadcn/ui)
-├── context/
-│   └── AuthContext.tsx    # Global auth state + Firebase phone auth methods
-├── hooks/
-│   └── useAuth.ts         # Re-export of useAuth for convenience
-├── lib/
-│   ├── api.ts             # Axios instance + all API calls
-│   ├── auth.ts            # Session helpers (localStorage / cookie)
-│   ├── firebase.ts        # Firebase app init + phone auth exports
-│   ├── constants.ts       # Company info, services, FAQs, cities
-│   └── utils.ts           # cn() class merge helper
-├── types/
-│   ├── auth.ts            # User, AuthTokens, form types
-│   └── admin.ts           # Lead, Blog, Testimonial types
-└── proxy.ts               # Next.js middleware — route protection
+om-packers/
+├── frontend/   ← Next.js 16 app (React 19, TypeScript, Tailwind, Firebase Auth)
+├── backend/    ← Express API (TypeScript, MongoDB, Firebase Admin, JWT)
+├── .gitignore
+├── package.json  (monorepo root — convenience scripts)
+└── README.md
 ```
 
----
+## Quick Start
 
-## Getting Started
-
-### 1. Install dependencies
-
+### Frontend
 ```bash
+cd frontend
 npm install
+# copy frontend/.env.local.example → frontend/.env.local and fill in values
+npm run dev       # http://localhost:3000
 ```
 
-### 2. Set up environment variables
-
-Copy the example below into `.env.local` and fill in your values:
-
-```env
-# Backend API
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-
-# Firebase — Web app config (Project Settings → General → Your apps)
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abc123
-
-# Google Maps
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSy...
-NEXT_PUBLIC_GOOGLE_MAP_ID=your-map-id
-```
-
-### 3. Run the dev server
-
+### Backend
 ```bash
-npm run dev
-# → http://localhost:3000
+cd backend
+npm install
+# copy backend/.env.example → backend/.env and fill in values
+npm run dev       # http://localhost:5000
 ```
 
----
-
-## Scripts
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start development server (Turbopack) |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run type-check` | TypeScript check without emit |
-
----
-
-## Authentication Flow
-
-### Phone OTP (Firebase)
-```
-Login page → enter mobile number
-→ Firebase sends SMS OTP (requires Blaze plan or test numbers)
-→ /verify-otp → enter 6-digit code
-→ Firebase confirms → ID token sent to backend
-→ Backend returns JWT access + refresh token
-→ User logged in
-```
-
-### Email / Password
-```
-Login page (Email tab) → email + password
-→ POST /api/auth/login
-→ JWT access + refresh token returned
-→ User logged in
-```
-
-### Google OAuth
-```
-"Continue with Google" button
-→ Redirected to backend /api/auth/google
-→ Passport Google OAuth flow
-→ Redirect back to /auth/callback with tokens
-→ User logged in
-```
-
-### Admin
-```
-/admin-login → email + password
-→ POST /api/admin/login
-→ Admin JWT returned
-→ Redirect to /admin dashboard
-```
-
----
-
-## Firebase Setup
-
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
-2. **Authentication → Sign-in method** → enable **Phone** and **Google**
-3. **Authentication → Settings → Authorized domains** → add `localhost`
-4. **Authentication → Settings → SMS region policy** → allow India (IN) or all regions
-5. For testing without billing: **Authentication → Sign-in method → Phone → Test phone numbers** → add a fake number + fixed OTP code
-6. Copy your web app config into `.env.local`
-
----
-
-## Route Protection
-
-`src/proxy.ts` (Next.js Middleware) guards:
-
-| Route | Rule |
-|---|---|
-| `/admin`, `/admin/*` | Redirects to `/admin-login` if not admin-authenticated |
-| `/admin-login` | Redirects to `/admin` if already admin-authenticated |
-| `/login`, `/signup` | Redirects to `/` if already user-authenticated |
-
-Session state is tracked via `sarkar_admin_auth` and `sarkar_user_auth` cookies.
-
----
-
-## Deployment
-
-The project includes `vercel.json` — deploy directly to Vercel:
-
+### Run both from root (convenience)
 ```bash
-vercel --prod
+npm run dev:frontend   # starts Next.js dev server
+npm run dev:backend    # starts Express dev server
 ```
 
-Set all `NEXT_PUBLIC_*` environment variables in the Vercel project settings before deploying.
+## Environment Variables
+
+### `frontend/.env.local`
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Backend base URL e.g. `http://localhost:5000/api` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase web app API key |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API key |
+| `NEXT_PUBLIC_GOOGLE_MAP_ID` | Google Maps map ID |
+
+### `backend/.env`
+| Variable | Description |
+|---|---|
+| `PORT` | Server port (default `5000`) |
+| `NODE_ENV` | `development` or `production` |
+| `MONGODB_URI` | MongoDB Atlas connection string |
+| `CLIENT_URL` | Frontend URL for CORS & OAuth redirect |
+| `JWT_ACCESS_SECRET` | JWT access token secret |
+| `JWT_REFRESH_SECRET` | JWT refresh token secret |
+| `JWT_ACCESS_EXPIRES_IN` | Access token TTL (e.g. `15m`) |
+| `JWT_REFRESH_EXPIRES_IN` | Refresh token TTL (e.g. `30d`) |
+| `SMTP_HOST` | SMTP server host |
+| `SMTP_PORT` | SMTP port |
+| `SMTP_USER` | SMTP username |
+| `SMTP_PASS` | SMTP password |
+| `SMTP_FROM` | From address |
+| `FIREBASE_PROJECT_ID` | Firebase Admin project ID |
+| `FIREBASE_CLIENT_EMAIL` | Firebase Admin service account email |
+| `FIREBASE_PRIVATE_KEY` | Firebase Admin private key (with `\n`) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GOOGLE_CALLBACK_URL` | Google OAuth callback URL |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
