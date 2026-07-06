@@ -126,6 +126,7 @@ export default function Navbar() {
   const {
     user, adminUser,
     isUserLoggedIn, isAdminLoggedIn,
+    loading,
     userSignOut, adminSignOut,
   } = useAuth();
 
@@ -216,7 +217,7 @@ export default function Navbar() {
 
             {/* Desktop right CTAs */}
             <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-              {isAdminLoggedIn && adminUser ? (
+              {!loading && isAdminLoggedIn && adminUser ? (
                 <>
                   <Link href="/admin"
                     className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-200"
@@ -225,7 +226,7 @@ export default function Navbar() {
                   </Link>
                   <AdminDropdown user={adminUser} onLogoutRequest={() => setLogoutTarget("admin")} />
                 </>
-              ) : isUserLoggedIn && user ? (
+              ) : !loading && isUserLoggedIn && user ? (
                 <>
                   <UserDropdown user={user} onLogoutRequest={() => setLogoutTarget("user")} />
                   <button onClick={handleAdminPortal}
@@ -267,7 +268,7 @@ export default function Navbar() {
 
             {/* Mobile right cluster */}
             <div className="flex lg:hidden items-center gap-1.5 flex-shrink-0">
-              {!isUserLoggedIn && !isAdminLoggedIn && (
+              {!loading && !isUserLoggedIn && !isAdminLoggedIn && (
                 <Link href="/signup"
                   className="flex items-center gap-1 h-9 px-2.5 sm:px-3 text-xs font-semibold text-white bg-gradient-to-r from-brand-red to-rose-600 rounded-lg whitespace-nowrap active:scale-95 transition-all duration-200"
                 >
@@ -327,7 +328,7 @@ export default function Navbar() {
         </div>
 
         {/* ── Profile strip (user) ── */}
-        {isUserLoggedIn && user && (
+        {!loading && isUserLoggedIn && user && (
           <div className="flex items-center gap-3 px-5 py-3.5 bg-green-600/10 border-b border-white/5">
             <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ring-2 ring-green-500/30">
               {user.name.charAt(0).toUpperCase()}
@@ -348,7 +349,7 @@ export default function Navbar() {
         )}
 
         {/* ── Profile strip (admin) ── */}
-        {isAdminLoggedIn && adminUser && (
+        {!loading && isAdminLoggedIn && adminUser && (
           <div className="flex items-center gap-3 px-5 py-3.5 bg-brand-red/10 border-b border-white/5">
             <div className="w-10 h-10 rounded-full bg-brand-red flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ring-2 ring-brand-red/30">
               {adminUser.name.charAt(0).toUpperCase()}
@@ -369,7 +370,7 @@ export default function Navbar() {
         )}
 
         {/* ── Not logged in strip ── */}
-        {!isUserLoggedIn && !isAdminLoggedIn && (
+        {!loading && !isUserLoggedIn && !isAdminLoggedIn && (
           <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5">
             <Link href="/login" onClick={() => setMobileOpen(false)}
               className="flex-1 flex items-center justify-center gap-1.5 h-9 border border-white/20 hover:bg-white/5 text-white text-xs font-semibold rounded-lg transition-all duration-200"

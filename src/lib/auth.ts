@@ -57,9 +57,9 @@ export function isAdminAuthenticated(): boolean {
 }
 
 // ── User session helpers ──────────────────────────────────
-export function persistUserSession(user: User, accessToken: string, refreshToken?: string, remember = false) {
-  const s = remember ? localStorage : sessionStorage;
-  s.setItem(USER_USER_KEY, JSON.stringify(user));
+export function persistUserSession(user: User, accessToken: string, refreshToken?: string, remember = true) {
+  // Always use localStorage — sessionStorage is per-tab and lost on mobile navigation
+  localStorage.setItem(USER_USER_KEY, JSON.stringify(user));
   tokenStorage.setAccess(accessToken);
   if (refreshToken) tokenStorage.setRefresh(refreshToken);
   setCookie("sarkar_user_auth", "true", remember ? 30 : 1);
