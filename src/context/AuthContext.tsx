@@ -173,8 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, adminUser, loading,
-      isUserLoggedIn:  isUserAuthenticated(),
-      isAdminLoggedIn: isAdminAuthenticated(),
+      isUserLoggedIn:  !!user,
+      isAdminLoggedIn: !!adminUser,
       userSignup, userSignIn, userSignOut, refreshUser,
       sendPhoneOtp, confirmPhoneOtp,
       adminSignIn, adminSignOut, loginWithGoogle,
