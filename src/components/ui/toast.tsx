@@ -24,7 +24,8 @@ const ToastContext = React.createContext<ToastContextValue | null>(null);
 
 export function useToast(): ToastContextValue {
   const ctx = React.useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
+  // Return a no-op during SSR / prerendering when the provider hasn't mounted yet
+  if (!ctx) return { show: () => {} };
   return ctx;
 }
 
