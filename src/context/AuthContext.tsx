@@ -12,6 +12,7 @@ import {
 import type { User } from "@/types/auth";
 import { AxiosError } from "axios";
 import type { ConfirmationResult } from "@/lib/firebase";
+import { useToast } from "@/components/ui/toast";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface AuthContextValue {
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading,     setLoading]     = useState(true);
   const confirmRef = useRef<ConfirmationResult | null>(null);
   const router = useRouter();
+  const { show: toast } = useToast();
 
   // Hydrate from storage on mount
   useEffect(() => {
@@ -61,12 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string; email: string; mobile: string; password: string;
   }) => {
     const res = await authApi.register(data);
-    // Auto-login: backend now returns tokens directly on registration
     const { accessToken, refreshToken, user: u } = res.data.data;
     persistUserSession(u, accessToken, refreshToken);
     setUser(u);
+    toast(`Welcome, ${u.name}! Account created successfully.`, "success");
     router.push("/");
-  }, [router]);
+  }, [router, toast]);
 
   /* ── User Login (email/password) ─────────────────────── */
   const userSignIn = useCallback(async (data: {
@@ -76,16 +78,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, refreshToken, user: u } = res.data.data;
     persistUserSession(u, accessToken, refreshToken, data.remember);
     setUser(u);
+    toast(`Welcome back, ${u.name}!`, "success");
     router.push("/");
-  }, [router]);
+  }, [router, toast]);
 
   /* ── User Logout ─────────────────────────────────────── */
   const userSignOut = useCallback(async () => {
     try { await authApi.logout(); } catch { /* ignore */ }
     clearUserSession();
     setUser(null);
+    toast("You've been signed out.", "info");
     router.push("/");
-  }, [router]);
+  }, [router, toast]);
 
   /* ── Refresh user from backend ───────────────────────── */
   const refreshUser = useCallback(async () => {
@@ -138,8 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistUserSession(u, accessToken, refreshToken, remember);
     setUser(u);
     confirmRef.current = null;
+    toast(`Welcome, ${u.name}!`, "success");
     router.push("/");
-  }, [router]);
+  }, [router, toast]);
 
   /* ── Admin Login ─────────────────────────────────────── */
   const adminSignIn = useCallback(async (email: string, password: string, remember = false) => {
@@ -148,15 +153,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, refreshToken, admin } = res.data.data;
     persistAdminSession(admin, accessToken, refreshToken, remember);
     setAdminUser(admin);
-    window.location.href = "/admin"; // full nav so proxy sees cookie
-  }, []);
+    toast(`Welcome, ${admin.name}!`, "success");
+    window.location.href = "/admin";
+  }, [toast]);
 
   /* ── Admin Logout ────────────────────────────────────── */
   const adminSignOut = useCallback(() => {
     clearAdminSession();
     setAdminUser(null);
+    toast("Admin signed out.", "info");
     router.push("/admin-login");
-  }, [router]);
+  }, [router, toast]);
 
   /* ── Google OAuth ────────────────────────────────────── */
   const loginWithGoogle = useCallback(() => {
