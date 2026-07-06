@@ -8,9 +8,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, UserCheck, Briefcase, MapPin,
   FileText, Star, Settings, LogOut, ChevronLeft, ChevronRight,
-  Truck, Menu,
+  Truck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import LogoutConfirmDialog from "@/components/ui/LogoutConfirmDialog";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -30,10 +31,18 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { adminUser: user, adminSignOut: signOut } = useAuth();
+  const { adminUser: user, adminSignOut } = useAuth();
+  const [showLogout,    setShowLogout]    = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
+
+  const handleLogoutConfirm = async () => {
+    setLogoutLoading(true);
+    try { await adminSignOut(); }
+    finally { setLogoutLoading(false); setShowLogout(false); }
+  };
 
   return (
     <motion.aside
@@ -41,6 +50,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       transition={{ duration: 0.25, ease: "easeInOut" }}
       className="fixed left-0 top-0 h-full bg-brand-navy z-30 flex flex-col border-r border-white/5 overflow-hidden"
     >
+      <LogoutConfirmDialog
+        open={showLogout}
+        loading={logoutLoading}
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setShowLogout(false)}
+      />
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/5 min-h-[72px]">
         <AnimatePresence>
@@ -119,7 +134,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
           </div>
         )}
-        <button onClick={signOut}
+        <button onClick={() => setShowLogout(true)}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all duration-200"
           title={collapsed ? "Logout" : undefined}
         >

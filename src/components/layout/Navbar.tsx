@@ -13,11 +13,9 @@ import {
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 import { handleNavClick } from "@/lib/smoothScroll";
-import {
-  getAdminUser, isAdminAuthenticated, adminLogout,
-  isUserAuthenticated, getUserUser, userLogout,
-} from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 import type { User as AuthUser } from "@/types/auth";
+import LogoutConfirmDialog from "@/components/ui/LogoutConfirmDialog";
 
 /* ─── data ─────────────────────────────────────────────── */
 const sidebarLinks = [
@@ -47,8 +45,10 @@ const desktopNavLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
-/* ─── Admin user dropdown ───────────────────────────────── */
-function AdminDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+/* ─── Admin dropdown ────────────────────────────────────── */
+function AdminDropdown({
+  user, onLogoutRequest,
+}: { user: AuthUser; onLogoutRequest: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative" onMouseLeave={() => setOpen(false)}>
@@ -67,8 +67,8 @@ function AdminDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => voi
         </div>
         {[
           { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-          { icon: User, label: "Profile", href: "/admin/settings" },
-          { icon: Settings, label: "Settings", href: "/admin/settings" },
+          { icon: User,            label: "Profile",   href: "/admin/settings" },
+          { icon: Settings,        label: "Settings",  href: "/admin/settings" },
         ].map(({ icon: Icon, label, href }) => (
           <Link key={label} href={href} onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/5 text-sm transition-all duration-150"
@@ -77,7 +77,7 @@ function AdminDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => voi
           </Link>
         ))}
         <div className="border-t border-white/5 mt-1 pt-1">
-          <button onClick={() => { setOpen(false); onLogout(); }}
+          <button onClick={() => { setOpen(false); onLogoutRequest(); }}
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-red-400 hover:bg-red-400/10 text-sm transition-all duration-150"
           >
             <LogOut className="w-4 h-4" />Logout
@@ -88,8 +88,10 @@ function AdminDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => voi
   );
 }
 
-/* ─── User (customer) badge dropdown ────────────────────── */
-function UserDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+/* ─── User dropdown ─────────────────────────────────────── */
+function UserDropdown({
+  user, onLogoutRequest,
+}: { user: AuthUser; onLogoutRequest: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative" onMouseLeave={() => setOpen(false)}>
@@ -107,7 +109,7 @@ function UserDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => void
           <p className="text-gray-500 text-xs truncate">{user.email}</p>
         </div>
         <div className="border-t border-white/5 mt-1 pt-1">
-          <button onClick={() => { setOpen(false); onLogout(); }}
+          <button onClick={() => { setOpen(false); onLogoutRequest(); }}
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-red-400 hover:bg-red-400/10 text-sm"
           >
             <LogOut className="w-4 h-4" />Logout
@@ -120,27 +122,17 @@ function UserDropdown({ user, onLogout }: { user: AuthUser; onLogout: () => void
 
 /* ─── Main Navbar ───────────────────────────────────────── */
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [servicesOpen, setServicesOpen] = useState(false);
-  const [adminUser, setAdminUser] = useState<AuthUser | null>(null);
-  const [userUser, setUserUser] = useState<AuthUser | null>(null);
-  const [adminAuthed, setAdminAuthed] = useState(false);
-  const [userAuthed, setUserAuthed] = useState(false);
+  const [scrolled,      setScrolled]      = useState(false);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
+  const [servicesOpen,  setServicesOpen]  = useState(false);
+  const [logoutTarget,  setLogoutTarget]  = useState<"user" | "admin" | null>(null);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
   const router = useRouter();
-
-  const syncAuth = () => {
-    setAdminUser(getAdminUser());
-    setUserUser(getUserUser());
-    setAdminAuthed(isAdminAuthenticated());
-    setUserAuthed(isUserAuthenticated());
-  };
-
-  useEffect(() => {
-    syncAuth();
-    window.addEventListener("focus", syncAuth);
-    return () => window.removeEventListener("focus", syncAuth);
-  }, []);
+  const {
+    user, adminUser, isUserLoggedIn, isAdminLoggedIn,
+    userSignOut, adminSignOut,
+  } = useAuth();
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 20);
@@ -149,17 +141,37 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setMobileOpen(false); setLogoutTarget(null); }
+    };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, []);
 
-  const handleAdminLogout = () => { adminLogout(); syncAuth(); router.push("/"); };
-  const handleUserLogout = () => { userLogout(); syncAuth(); router.push("/"); };
-  const handleAdminPortal = () => router.push(adminAuthed ? "/admin" : "/admin-login");
+  const handleAdminPortal = () =>
+    router.push(isAdminLoggedIn ? "/admin" : "/admin-login");
+
+  const handleLogoutConfirm = async () => {
+    setLogoutLoading(true);
+    try {
+      if (logoutTarget === "admin") await adminSignOut();
+      else await userSignOut();
+    } finally {
+      setLogoutLoading(false);
+      setLogoutTarget(null);
+    }
+  };
 
   return (
     <>
+      {/* ── Logout confirmation dialog ─────────────────── */}
+      <LogoutConfirmDialog
+        open={!!logoutTarget}
+        loading={logoutLoading}
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setLogoutTarget(null)}
+      />
+
       {/* ── Header ─────────────────────────────────────── */}
       <header className={`fixed top-0 md:top-[36px] left-0 right-0 z-[100] w-full transition-all duration-300 ${scrolled ? "bg-brand-navy/95 backdrop-blur-xl shadow-2xl border-b border-white/5" : "bg-brand-navy"}`}>
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-2">
@@ -207,20 +219,18 @@ export default function Navbar() {
 
             {/* ── Desktop right CTAs ───────────────────── */}
             <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-              {adminAuthed && adminUser ? (
-                /* Admin logged in */
+              {isAdminLoggedIn && adminUser ? (
                 <>
                   <Link href="/admin"
                     className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-200"
                   >
                     <LayoutDashboard className="w-4 h-4" />Dashboard
                   </Link>
-                  <AdminDropdown user={adminUser} onLogout={handleAdminLogout} />
+                  <AdminDropdown user={adminUser} onLogoutRequest={() => setLogoutTarget("admin")} />
                 </>
-              ) : userAuthed && userUser ? (
-                /* Customer logged in */
+              ) : isUserLoggedIn && user ? (
                 <>
-                  <UserDropdown user={userUser} onLogout={handleUserLogout} />
+                  <UserDropdown user={user} onLogoutRequest={() => setLogoutTarget("user")} />
                   <button onClick={handleAdminPortal}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-brand-navy-mid hover:bg-brand-navy-light border border-white/10 rounded-xl transition-all duration-200 active:scale-95"
                   >
@@ -233,7 +243,6 @@ export default function Navbar() {
                   </a>
                 </>
               ) : (
-                /* Not logged in */
                 <>
                   <Link href="/login"
                     className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white border border-white/30 hover:border-white/60 hover:bg-white/5 rounded-xl transition-all duration-200"
@@ -261,9 +270,7 @@ export default function Navbar() {
 
             {/* ── Mobile right cluster ─────────────────── */}
             <div className="flex lg:hidden items-center gap-1.5 flex-shrink-0">
-
-              {/* Sign Up — only when NO user or admin logged in */}
-              {!userAuthed && !adminAuthed && (
+              {!isUserLoggedIn && !isAdminLoggedIn && (
                 <Link href="/signup"
                   className="flex items-center gap-1 h-9 px-2.5 sm:px-3 text-xs font-semibold text-white bg-gradient-to-r from-brand-red to-rose-600 rounded-lg whitespace-nowrap active:scale-95 transition-all duration-200"
                 >
@@ -271,16 +278,12 @@ export default function Navbar() {
                   <span className="hidden xs:inline sm:inline">Sign Up</span>
                 </Link>
               )}
-
-              {/* Admin Portal — always visible */}
               <button onClick={handleAdminPortal}
                 className="flex items-center gap-1 h-9 px-2.5 sm:px-3 text-xs font-semibold text-white bg-brand-navy-mid border border-white/15 rounded-lg whitespace-nowrap active:scale-95 transition-all duration-200"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-brand-red flex-shrink-0" />
                 <span className="hidden sm:inline">Admin</span>
               </button>
-
-              {/* Hamburger */}
               <button onClick={() => setMobileOpen(!mobileOpen)}
                 className="h-9 w-9 flex items-center justify-center text-white rounded-lg hover:bg-white/10 transition-colors duration-200"
                 aria-label="Toggle menu" aria-expanded={mobileOpen}
@@ -288,7 +291,6 @@ export default function Navbar() {
                 {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
-
           </div>
         </div>
       </header>
@@ -305,7 +307,7 @@ export default function Navbar() {
         )}
       </AnimatePresence>
 
-      {/* ── Mobile drawer — NO auth items, only nav + CTA ─ */}
+      {/* ── Mobile drawer ───────────────────────────────── */}
       <motion.div
         initial={false}
         animate={{ x: mobileOpen ? 0 : "100%" }}
@@ -320,19 +322,49 @@ export default function Navbar() {
           </div>
           <button onClick={() => setMobileOpen(false)}
             className="text-gray-400 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-colors duration-200"
-            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable nav area */}
-        <div
-          className="flex-1 overflow-y-auto overscroll-contain px-4 py-4"
-          style={{
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
+        {/* User info strip (when logged in) */}
+        {(isUserLoggedIn && user) && (
+          <div className="flex items-center gap-3 px-5 py-3 bg-white/5 border-b border-white/5">
+            <div className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {user.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-sm font-semibold truncate">{user.name}</p>
+              <p className="text-gray-500 text-xs truncate">{user.email}</p>
+            </div>
+            <button onClick={() => { setMobileOpen(false); setLogoutTarget("user"); }}
+              className="flex-shrink-0 p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        {(isAdminLoggedIn && adminUser) && (
+          <div className="flex items-center gap-3 px-5 py-3 bg-white/5 border-b border-white/5">
+            <div className="w-9 h-9 rounded-full bg-brand-red flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {adminUser.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-sm font-semibold truncate">{adminUser.name}</p>
+              <p className="text-gray-500 text-xs truncate">{adminUser.email}</p>
+            </div>
+            <button onClick={() => { setMobileOpen(false); setLogoutTarget("admin"); }}
+              className="flex-shrink-0 p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable nav */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4" style={{ WebkitOverflowScrolling: "touch" }}>
           <nav className="space-y-0.5">
             {sidebarLinks.map((link, i) => (
               <motion.div key={link.label}
@@ -349,8 +381,6 @@ export default function Navbar() {
                 </a>
               </motion.div>
             ))}
-
-            {/* Services sub-group */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: mobileOpen ? 1 : 0, x: mobileOpen ? 0 : 20 }}
@@ -371,17 +401,14 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* ── Sticky footer CTA — always visible ────────── */}
+        {/* Sticky footer */}
         <div className="flex-shrink-0 px-4 py-4 border-t border-white/10 space-y-2.5 bg-brand-navy">
-          <a href={`tel:${COMPANY.phone}`}
-            onClick={() => setMobileOpen(false)}
+          <a href={`tel:${COMPANY.phone}`} onClick={() => setMobileOpen(false)}
             className="flex items-center justify-center gap-2 w-full h-11 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition-colors duration-200 active:scale-95"
           >
-            <Phone className="w-4 h-4" />
-            <span> Call Now {COMPANY.phone}</span>
+            <Phone className="w-4 h-4" /><span>Call Now {COMPANY.phone}</span>
           </a>
-          <a href="#quote"
-            onClick={e => handleNavClick(e, "#quote", () => setMobileOpen(false))}
+          <a href="#quote" onClick={e => handleNavClick(e, "#quote", () => setMobileOpen(false))}
             className="flex items-center justify-center gap-2 w-full h-10 bg-brand-red/10 hover:bg-brand-red/20 border border-brand-red/20 text-brand-red text-sm font-semibold rounded-xl transition-colors duration-200 cursor-pointer"
           >
             Get Free Quote

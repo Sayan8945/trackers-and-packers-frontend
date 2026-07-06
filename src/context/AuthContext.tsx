@@ -34,7 +34,7 @@ interface AuthContextValue {
 
   // Admin auth
   adminSignIn:  (email: string, password: string, remember?: boolean) => Promise<void>;
-  adminSignOut: () => void;
+  adminSignOut: () => void | Promise<void>;
 
   // Google
   loginWithGoogle: () => void;
